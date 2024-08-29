@@ -8,6 +8,36 @@ const server = express();
 server.use(express.json());
 
 const courses = ['Node JS', 'JavaScript', 'React Native'];
+// Creating a globla middleware
+server.use((req, res, next) => {
+    // It prints the url requested and the type of the request
+    console.log(`Requested URL: ${req.url}\nHTTP request method: ${req.method}`);
+
+    // This `next` function is responsible for, after this global middleware ran, continue to the requested route
+    return next();
+});
+
+// Let's create another middleware(function) to validate the data `name` that comes in a request body
+function checkCourse(req, res, next) {
+    if(!req.body.name) {
+        return res.status(400).json({ error: "The course name is mandatory" });
+    }
+
+    return next();
+}
+
+// Let's create another middleware to validade the index when it's requested to return a especific course name
+function checkIndexAvailability(req, res, next) {
+    const course = courses[req.params.index];
+    if(!course) {
+        return res.status(400).json({ error: "This index doesn't exist in `courses` list" });
+    }
+
+    req.course = course;
+
+    return next();
+}
+
 
 // Query params: params that are passed in the route. Example: ?name=NodeJS
 // Route params: params that are passed directly in the route. Example: /route/2
@@ -29,30 +59,29 @@ server.get('/secondroute/:id', (req, res) => {
     return res.json({ route: `Showing id: ${id}` })
 });
 
-server.get('/courses/:index', (req, res) => {
-    // Getting data using Route params
-    const { index } = req.params;
-    return res.json(courses[index]);
+server.get('/courses/:index', checkIndexAvailability, (req, res) => {
+    // This `req.course` comes from `checkIndexAvailability` that sets this data
+    return res.json(req.course);
 });
 
 // Lets create a CRUD!
 // Create, Read, Update, Delete
 
-// Create
-server.post('/courses', (req, res) => {
+// Create a new course
+server.post('/courses', checkCourse, (req, res) => {
     const { name } = req.body;
     courses.push(name);
 
     return res.json(courses);
 });
 
-// Read
+// Read all the courses
 server.get('/courses', (req, res) => {
     return res.json(courses);
 });
 
-// Update
-server.put('/courses/:index', (req, res) => {
+// Update a course
+server.put('/courses/:index', checkCourse, checkIndexAvailability, (req, res) => {
     const { index } = req.params;
     const { name } = req.body;
 
@@ -61,8 +90,8 @@ server.put('/courses/:index', (req, res) => {
     return res.json(courses);
 });
 
-// Delete
-server.delete('/courses/:index', (req, res) => {
+// Delete a course
+server.delete('/courses/:index', checkIndexAvailability, (req, res) => {
     const { index } = req.params;
 
     courses.splice(index, 1);
